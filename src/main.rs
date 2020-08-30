@@ -3,20 +3,41 @@ use bevy::prelude::*;
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut textures: ResMut<Assets<Texture>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    let texture_handle = asset_server.load("assets/icon.png").unwrap();
+    let texture_handle = asset_server
+        .load_sync(&mut textures, "assets/gabe-idle-run.png")
+        .unwrap();
+    let texture = textures.get(&texture_handle).unwrap();
+    let texture_atlas = TextureAtlas::from_grid(texture_handle, texture.size, 7, 1);
+    let texture_atlas_handle = texture_atlases.add(texture_atlas);
     commands
         .spawn(Camera2dComponents::default())
-        .spawn(SpriteComponents {
-            material: materials.add(texture_handle.into()),
+        .spawn(SpriteSheetComponents {
+            texture_atlas: texture_atlas_handle,
+            scale: Scale(6.0),
             ..Default::default()
-        });
+        })
+        .with(Timer::from_seconds(0.1, true));
+}
+
+fn animate_sprite_system(
+    texture_atlasses: Res<Assets<TextureAtlas>>,
+    mut query: Query<(&mut Timer, &mut TextureAtlasSprite, &Handle<TextureAtlas>)>,
+) {
+    for (timer, mut sprite, texture_atlas_handle) in &mut query.iter() {
+        if timer.finished {
+            let texture_atlas = texture_atlasses.get(&texture_atlas_handle).unwrap();
+            sprite.index = ((sprite.index as usize + 1) % texture_atlas.textures.len()) as u32;
+        }
+    }
 }
 
 fn main() {
     App::build()
         .add_default_plugins()
         .add_startup_system(setup.system())
+        .add_system(animate_sprite_system.system())
         .run();
 }
