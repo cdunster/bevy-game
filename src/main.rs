@@ -1,43 +1,47 @@
-use bevy::prelude::*;
-
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut textures: ResMut<Assets<Texture>>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-) {
-    let texture_handle = asset_server
-        .load_sync(&mut textures, "assets/gabe-idle-run.png")
-        .unwrap();
-    let texture = textures.get(&texture_handle).unwrap();
-    let texture_atlas = TextureAtlas::from_grid(texture_handle, texture.size, 7, 1);
-    let texture_atlas_handle = texture_atlases.add(texture_atlas);
-    commands
-        .spawn(Camera2dComponents::default())
-        .spawn(SpriteSheetComponents {
-            texture_atlas: texture_atlas_handle,
-            scale: Scale(6.0),
-            ..Default::default()
-        })
-        .with(Timer::from_seconds(0.1, true));
-}
-
-fn animate_sprite_system(
-    texture_atlasses: Res<Assets<TextureAtlas>>,
-    mut query: Query<(&mut Timer, &mut TextureAtlasSprite, &Handle<TextureAtlas>)>,
-) {
-    for (timer, mut sprite, texture_atlas_handle) in &mut query.iter() {
-        if timer.finished {
-            let texture_atlas = texture_atlasses.get(&texture_atlas_handle).unwrap();
-            sprite.index = ((sprite.index as usize + 1) % texture_atlas.textures.len()) as u32;
-        }
-    }
-}
+use bevy::{
+    input::mouse::{MouseButtonInput, MouseMotion, MouseWheel},
+    prelude::*,
+};
 
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_startup_system(setup.system())
-        .add_system(animate_sprite_system.system())
+        .init_resource::<State>()
+        .add_system(print_mouse_events_system.system())
         .run();
+}
+
+#[derive(Default)]
+struct State {
+    mouse_button_event_reader: EventReader<MouseButtonInput>,
+    mouse_motion_event_reader: EventReader<MouseMotion>,
+    cursor_moved_event_reader: EventReader<CursorMoved>,
+    mouse_wheel_event_reader: EventReader<MouseWheel>,
+}
+
+fn print_mouse_events_system(
+    mut state: ResMut<State>,
+    mouse_button_input_events: Res<Events<MouseButtonInput>>,
+    mouse_motion_events: Res<Events<MouseMotion>>,
+    cursor_move_events: Res<Events<CursorMoved>>,
+    mouse_wheel_events: Res<Events<MouseWheel>>,
+) {
+    for event in state
+        .mouse_button_event_reader
+        .iter(&mouse_button_input_events)
+    {
+        println!("{:?}", event);
+    }
+
+    for event in state.mouse_motion_event_reader.iter(&mouse_motion_events) {
+        println!("{:?}", event);
+    }
+
+    for event in state.cursor_moved_event_reader.iter(&cursor_move_events) {
+        println!("{:?}", event);
+    }
+
+    for event in state.mouse_wheel_event_reader.iter(&mouse_wheel_events) {
+        println!("{:?}", event);
+    }
 }
